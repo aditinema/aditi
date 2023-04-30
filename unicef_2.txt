@@ -1,0 +1,109 @@
+---
+title: "pregnant women presenting at antenatal clinics (ANC) who were tested for HIV"
+output: html_document
+date: "2023-04-30"
+---
+
+## Loading Data
+
+```{r}
+# Load required packages
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+library(scales)
+library(ggthemes)
+library(maptools)
+library(dplyr)
+library(maps)
+library(rnaturalearth)
+library(rworldmap)
+library(countrycode)
+```
+
+```{r}
+# Read in data
+data <- read.csv("unicef_indicator_two.csv", header = TRUE , stringsAsFactors = FALSE)
+head(data)
+```
+
+## Map of the world
+
+```{r}
+# Convert alpha_2_code to ISO3 country codes
+data$ISO3 <- countrycode(sourcevar = data$alpha_2_code, origin = "iso2c", destination = "iso3c")
+
+# Summarize data by country
+deprivation <- data %>%
+  group_by(ISO3) %>%
+  summarise(avg_deprivation = mean(obs_value, na.rm = TRUE))
+
+# Join deprivation data to world map data
+world_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  select(iso_a3, geometry) %>%
+  left_join(deprivation, by = c("iso_a3" = "ISO3"))
+
+# Create map plot
+ggplot(world_map) +
+  geom_sf(aes(fill = avg_deprivation)) +
+  scale_fill_distiller(palette ="RdBu", na.value = "grey90", direction = -1) + # or direction=1 +
+  theme_void() + 
+  labs(title = "Average pregnant women presenting at antenatal clinics (ANC) who were tested for HIV", 
+       subtitle = "Data from UNICEF",
+       fill = "Average Deprivation")
+```
+
+## the Bar_Chart
+
+```{r}
+bar_data <- data %>%
+  group_by(region) %>%
+  summarise(avg_deprivation = mean(obs_value)) %>%
+  arrange(desc(avg_deprivation)) %>%
+  head(10)
+
+bar_plot <- ggplot(bar_data, aes(x = reorder(region, avg_deprivation), y = avg_deprivation)) +
+  geom_bar(stat = "identity", fill = "green") +
+  coord_flip() +
+  labs(title = "Top 10 Countries with the Highest pregnant women presenting at antenatal clinics (ANC) who were tested for HIV",
+       x = "Country", y = "pregnant women presenting at antenatal clinics (ANC) who were tested for HIV") +
+  theme_bw()
+
+bar_plot
+```
+
+## Scatter Plot
+
+```{r}
+scatter_data <- data %>%
+  group_by(time_period) %>%
+  summarise(avg_deprivation = mean(obs_value))
+
+scatter_plot <- ggplot(scatter_data, aes(x = time_period, y = avg_deprivation)) +
+  geom_point(color = "red") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(title = "Average Deprivations vs Time Period",
+       x = "Time Period", y = "Average Number of Deprivations") +
+  theme_bw()
+
+scatter_plot
+```
+
+## Time Series Plot
+
+```{r}
+data %>%
+  group_by(time_period) %>%
+  summarise(avg_deprivations = mean(obs_value)) %>%
+  ggplot(aes(x = time_period, y = avg_deprivations)) +
+  geom_line(size = 1) +
+  scale_color_viridis_d() +
+  labs(title = "pregnant women presenting at antenatal clinics (ANC) who were tested for HIV",
+       x = "Year",
+       y = "Average Number of Deprivations",
+       color = "Region") +
+  theme_minimal()
+```
+
+
+
